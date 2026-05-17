@@ -212,11 +212,11 @@ body {
   .hero-vignette {
     background: radial-gradient(
       circle farthest-side at center,
-      transparent 30%,
-      rgba(42, 31, 27, 0.20) 43%,
-      rgba(42, 31, 27, 0.60) 55%,
-      rgba(42, 31, 27, 0.95) 66%,
-      #2A1F1B 77%
+      transparent 26%,
+      rgba(42, 31, 27, 0.20) 39%,
+      rgba(42, 31, 27, 0.60) 51%,
+      rgba(42, 31, 27, 0.95) 62%,
+      #2A1F1B 73%
     );
   }
 }
