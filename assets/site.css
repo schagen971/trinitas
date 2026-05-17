@@ -937,7 +937,7 @@ footer a.classic[href="#top"],
     padding: 4.5rem 1.25rem 4rem;
   }
   .contact-image-bg {
-    background-position: right -160px bottom;
+    background-position: right -160px 15%;
     background-size: 280% auto;
     opacity: 0.45;
   }
