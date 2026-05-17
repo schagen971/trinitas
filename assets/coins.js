@@ -14,7 +14,8 @@
   function init() {
     if (typeof THREE === 'undefined' ||
         typeof THREE.GLTFLoader === 'undefined' ||
-        typeof THREE.RoomEnvironment === 'undefined') {
+        typeof THREE.RoomEnvironment === 'undefined' ||
+        typeof THREE.SVGLoader === 'undefined') {
       setTimeout(init, 100); return;
     }
     const canvas = document.getElementById('crypto-canvas');
@@ -54,6 +55,185 @@
       envMapIntensity: 0.75,
     });
 
+    /* ================================================================
+       Crypto symbol emboss — BTC / ETH / SOL 8개 코인 face 에 부착.
+       SVG → ExtrudeGeometry → goldMat (코인과 같은 머티리얼로 일체화).
+       핵심 결정:
+       - depth / bevel 을 SVG viewBox 크기에 비례하게 추출 후 uniform scale
+         로 정규화 → 어느 SVG 든 같은 부조 두께·면취 비율 보장.
+       - BTC SVG 는 path[0] 이 오렌지 원 배경 (코인 face 에 disc-on-disc
+         겹침 방지) → path[1] (흰 B 마크) 만 추출.
+       - ETH/SOL 은 배경 없음, 전 path 추출.
+       - 부조는 코인 mesh 의 자식으로 부착 → ring orbit / 자전 모두 자동
+         따라감. 머티리얼은 goldMat 재사용 (코인과 일체).
+    ================================================================ */
+    const SYMBOL_BASE_SIZE   = 100;    // 정규화 기준 XY 크기
+    const SYMBOL_DEPTH_RATIO = 0.05;   // base size 대비 부조 두께 5%
+    const SYMBOL_BEVEL_RATIO = 0.012;  // base size 대비 bevel 1.2%
+    const COIN_FACE_FILL     = 0.50;   // 코인 face 대비 심볼 폭 50%
+    const symbolGeometries = {};
+    const svgLoader = new THREE.SVGLoader();
+
+    function loadSymbolGeometry(name, pathFilter) {
+      return new Promise(function (resolve) {
+        svgLoader.load('/assets/' + name + '.svg', function (data) {
+          const allShapes = [];
+          data.paths.forEach(function (path, idx) {
+            if (pathFilter && !pathFilter(path, idx)) return;
+            path.toShapes(true).forEach(function (s) { allShapes.push(s); });
+          });
+          if (!allShapes.length) {
+            console.warn('[coin] no shapes extracted from', name);
+            resolve(); return;
+          }
+
+          // 1차 — 베벨 없이 cheap extrude 해서 raw SVG bbox 측정
+          const probe = new THREE.ExtrudeGeometry(allShapes, {
+            depth: 0.001, bevelEnabled: false
+          });
+          probe.computeBoundingBox();
+          const probeDim = Math.max(
+            probe.boundingBox.max.x - probe.boundingBox.min.x,
+            probe.boundingBox.max.y - probe.boundingBox.min.y
+          );
+          probe.dispose();
+
+          // 2차 — bevel/depth 를 SVG dim 에 비례시켜 진짜 추출
+          const depth = probeDim * SYMBOL_DEPTH_RATIO;
+          const bevel = probeDim * SYMBOL_BEVEL_RATIO;
+          const geom = new THREE.ExtrudeGeometry(allShapes, {
+            depth: depth,
+            bevelEnabled: true,
+            bevelThickness: bevel,
+            bevelSize: bevel,
+            bevelSegments: 3,
+            curveSegments: 12,
+          });
+          geom.rotateX(Math.PI);  // SVG Y-down → Three.js Y-up
+
+          // 중앙 정렬: XY 는 중앙, Z 는 bottom(=back) 을 z=0 에 정렬
+          geom.computeBoundingBox();
+          const bb = geom.boundingBox;
+          geom.translate(
+            -(bb.min.x + bb.max.x) / 2,
+            -(bb.min.y + bb.max.y) / 2,
+            -bb.min.z
+          );
+
+          // 마지막 — XY 를 SYMBOL_BASE_SIZE 로 uniform 정규화
+          // (uniform 이라 depth/bevel 비율 유지됨)
+          geom.computeBoundingBox();
+          const finalBB = geom.boundingBox;
+          const finalDim = Math.max(
+            finalBB.max.x - finalBB.min.x,
+            finalBB.max.y - finalBB.min.y
+          );
+          const s = SYMBOL_BASE_SIZE / finalDim;
+          geom.scale(s, s, s);
+
+          symbolGeometries[name] = geom;
+        }, undefined, function (err) {
+          console.warn('[coin] symbol load failed:', name, err);
+        });
+      });
+    }
+
+    // 3종 동시 로드. BTC 는 path[0] (오렌지 원) 스킵.
+    loadSymbolGeometry('btc', function (path, idx) { return idx > 0; });
+    loadSymbolGeometry('eth');
+    loadSymbolGeometry('sol');
+
+    /* 코인 mesh 에 심볼 부조 부착. SVG 가 아직 안 들어왔으면 100ms 후 재시도. */
+    function attachSymbol(mesh, symbolName) {
+      const geom = symbolGeometries[symbolName];
+      if (!geom) {
+        setTimeout(function () { attachSymbol(mesh, symbolName); }, 100);
+        return;
+      }
+
+      mesh.geometry.computeBoundingBox();
+      const cb = mesh.geometry.boundingBox;
+      const coinFaceDim = Math.max(
+        cb.max.x - cb.min.x,
+        cb.max.y - cb.min.y
+      );
+      // SYMBOL_BASE_SIZE 가 코인 face 의 COIN_FACE_FILL(50%) 차지하도록 mesh scale
+      const symbolScale = (coinFaceDim * COIN_FACE_FILL) / SYMBOL_BASE_SIZE;
+
+      // 앞면 부조 — cover top 위에 sit (face + gap + cover 두께)
+      const symbolFront = new THREE.Mesh(geom, goldMat);
+      symbolFront.scale.set(symbolScale, symbolScale, symbolScale);
+      symbolFront.position.set(0, 0, cb.max.z + coverGap + coverTotalZ);
+      mesh.add(symbolFront);
+
+      // 뒷면 부조 — back cover top 위에 sit, rotation.y=π 로 chirality 정상
+      const symbolBack = new THREE.Mesh(geom, goldMat);
+      symbolBack.scale.set(symbolScale, symbolScale, symbolScale);
+      symbolBack.position.set(0, 0, cb.min.z - coverGap - coverTotalZ);
+      symbolBack.rotation.y = Math.PI;
+      mesh.add(symbolBack);
+    }
+
+    /* 8 코인 분배 — BTC 3, ETH 3, SOL 2 번갈아 (indices 0,3,6 / 1,4,7 / 2,5) */
+    const symbolAssignment = ['btc','eth','sol','btc','eth','sol','btc','eth'];
+
+    /* ================================================================
+       Face cover — 극박 wafer disc. 오직 baked-in 부조 occlude 용,
+       시각적 존재감 0 이 목표. 베벨 없음, 22x 얇아진 두께 (0.5% of dim).
+       coin 외곽 rim (튀어나온 테두리) 은 fill 0.78 로 보존.
+       두께 합 = 0.5% of dim → world ~0.007 unit → 거의 invisible plane.
+    ================================================================ */
+    const COVER_FILL_RATIO      = 0.78;   // dim 의 78% — rim 11% 양쪽 보존
+    const COVER_THICKNESS_RATIO = 0.005;  // dim 의 0.5% — 극박 wafer
+    const COVER_GAP_RATIO       = 0.002;  // face↔cover 미세 갭 (z-fight 방지)
+
+    let coverGeometry = null;
+    let coverTotalZ   = 0;
+    let coverGap      = 0;
+
+    function ensureCoverGeometry(refMesh) {
+      if (coverGeometry) return;
+      refMesh.geometry.computeBoundingBox();
+      const cb = refMesh.geometry.boundingBox;
+      const coinDim = Math.max(cb.max.x - cb.min.x, cb.max.y - cb.min.y);
+      const radius  = coinDim * COVER_FILL_RATIO / 2;
+      const depth   = coinDim * COVER_THICKNESS_RATIO;
+      coverGap      = coinDim * COVER_GAP_RATIO;
+
+      const shape = new THREE.Shape();
+      shape.absarc(0, 0, radius, 0, Math.PI * 2, false);
+
+      // 베벨 OFF — 극박 wafer 의 추가 두께 0. side wall 은 sharp.
+      const geom = new THREE.ExtrudeGeometry(shape, {
+        depth: depth,
+        bevelEnabled: false,
+        curveSegments: 64,
+      });
+      // bottom 을 z=0 에 정렬
+      geom.computeBoundingBox();
+      geom.translate(0, 0, -geom.boundingBox.min.z);
+      geom.computeBoundingBox();
+      coverTotalZ = geom.boundingBox.max.z;
+      coverGeometry = geom;
+    }
+
+    function attachCover(mesh) {
+      ensureCoverGeometry(mesh);
+      mesh.geometry.computeBoundingBox();
+      const cb = mesh.geometry.boundingBox;
+
+      // 앞면 — cover bottom 이 face + gap 위에 sit, +Z 로 두께만큼 솟음
+      const coverFront = new THREE.Mesh(coverGeometry, goldMat);
+      coverFront.position.set(0, 0, cb.max.z + coverGap);
+      mesh.add(coverFront);
+
+      // 뒷면 — rotation.y=π 로 -Z 방향으로 솟음
+      const coverBack = new THREE.Mesh(coverGeometry, goldMat);
+      coverBack.position.set(0, 0, cb.min.z - coverGap);
+      coverBack.rotation.y = Math.PI;
+      mesh.add(coverBack);
+    }
+
     const coinRoot = new THREE.Group();
     coinRoot.rotation.x = -0.6;    // ring 살짝 일으킴 (약 34°)
     scene.add(coinRoot);
@@ -87,6 +267,12 @@
         mesh.matrixAutoUpdate = true;
         mesh.matrix.identity();
         coinGroup.add(mesh);
+
+        // Face cover 부착 (앞·뒷면) — baked-in 부조 가림.
+        // 심볼은 cover top 위에 올라감 (attachSymbol 안에서 z 계산).
+        attachCover(mesh);
+        // 심볼 부조 부착 (앞·뒷면). 비동기 — SVG 로드 끝나면 즉시 attach.
+        attachSymbol(mesh, symbolAssignment[i]);
 
         // 균등 45° 간격, 고정 위치
         const angle = (i / NUM) * Math.PI * 2;
