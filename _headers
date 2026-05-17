@@ -5,7 +5,23 @@
   Permissions-Policy: geolocation=(), microphone=(), camera=()
   Strict-Transport-Security: max-age=31536000; includeSubDomains
 
-/assets/*
+# CSS / JS: 자주 변하는 빌드 산출물 — 5분 캐시 후 conditional GET 강제.
+# 변경 시 ETag/Last-Modified 로 304 받으면 캐시 hit, 변경되면 200 으로 새로 받음.
+/assets/*.css
+  Cache-Control: public, max-age=300, must-revalidate
+
+/assets/*.js
+  Cache-Control: public, max-age=300, must-revalidate
+
+# 이미지 / 3D 모델: 거의 변하지 않는 binary — 1년 immutable.
+# 갱신 필요 시 파일명 변경(예: contact-humanoid-v2.webp) 으로 cache-bust.
+/assets/*.webp
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/*.jpg
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/*.glb
   Cache-Control: public, max-age=31536000, immutable
 
 /*.png
