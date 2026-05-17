@@ -1,6 +1,21 @@
-홈페이지+텍스트+정리.docx
-design.md
-git.md
-text.md
+# === Internal working notes / docs (not for deployment) ===
+*.md
+수정사항/
+
+# === Legacy prototypes / drafts ===
 trinitas_final.html
+trinitas4 (1).html
 히어로반응형샘플/
+홈페이지+텍스트+정리.docx
+
+# === IDE / OS noise ===
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+
+# === Source design files (ship optimized webp/jpg only) ===
+*.psd
+*.ai
+*.fig

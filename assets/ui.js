@@ -62,7 +62,7 @@
      pillar-card AND business-card when each crosses the viewport's
      centre 20% strip. rootMargin -40% top/bottom = inner 20% band. */
   const noHover = window.matchMedia && window.matchMedia('(hover: none)').matches;
-  const cards = document.querySelectorAll('.pillar-card, .business-card');
+  const cards = document.querySelectorAll('.pillar-card, .business-card, .about-card');
   if (noHover && cards.length && 'IntersectionObserver' in window) {
     const centerObs = new IntersectionObserver(entries => {
       entries.forEach(e => {

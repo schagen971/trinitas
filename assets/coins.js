@@ -1,254 +1,204 @@
 /* ====================================================================
-   Trinitas Investment — Coin Orbit (Three.js)
-   All coins share a unified gold base; only the embossed symbol differs.
-   Mirrors the original BTC build style from trinitas_final.html and
-   re-skins ETH / SOL into the same gold language.
+   Trinitas Investment — Coin Orbit
+   Spline State 자전 로직 100% 재현:
+   - Group 0 (index=0): X+Z 동시 0↔180° ping pong, 8s 주기, easeInOut
+   - Group 1+ (index≥1): X축 0→359° 연속, 5s 주기 then reset, easeInOut
+   - 위치 고정 + Y float만 (ring 자체 회전 없음)
+   카메라/조명/머티리얼/coinRoot 자세 등 시각 외관은 직전 상태 유지.
 ==================================================================== */
-
 (function () {
+  function easeInOut(t) {
+    return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  }
+
   function init() {
-    if (typeof THREE === 'undefined') { setTimeout(init, 100); return; }
+    if (typeof THREE === 'undefined' ||
+        typeof THREE.GLTFLoader === 'undefined' ||
+        typeof THREE.RoomEnvironment === 'undefined') {
+      setTimeout(init, 100); return;
+    }
     const canvas = document.getElementById('crypto-canvas');
     if (!canvas) return;
-
     const container = canvas.parentElement;
-    let W = container.clientWidth  || 800;
-    let H = container.clientHeight || 800;
+    let W = container.clientWidth  || window.innerWidth;
+    let H = container.clientHeight || window.innerHeight;
 
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x3B2E2A);
-    scene.fog = new THREE.FogExp2(0x3B2E2A, 0.05);
-
-    const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 100);
-    camera.position.set(0, 5, 7.5);
-    camera.lookAt(0, 0, 0);
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true, canvas: canvas });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, canvas: canvas, alpha: false });
     renderer.setSize(W, H);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.75;
 
-    /* Responsive resize — keeps the orbit perfectly square at every viewport */
-    function onResize() {
-      W = container.clientWidth  || 800;
-      H = container.clientHeight || 800;
-      camera.aspect = W / H;
-      camera.updateProjectionMatrix();
-      renderer.setSize(W, H);
-    }
-    window.addEventListener('resize', onResize);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x2A1F1B);
 
-    /* Lighting — keeps the ecclesiastical-gold sheen */
-    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-    const keyLight  = new THREE.PointLight(0xffffff, 6, 30); keyLight.position.set(6, 6, 6);   scene.add(keyLight);
-    const fillLight = new THREE.PointLight(0xfff0dd, 3, 20); fillLight.position.set(-6, -2, 4); scene.add(fillLight);
-    const topLight  = new THREE.PointLight(0xffffff, 3, 20); topLight.position.set(0, 7, -5);   scene.add(topLight);
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new THREE.RoomEnvironment(), 0.02).texture;
+    pmrem.dispose();
 
-    /* ---------- shape helpers ---------- */
-    function addFace(group, shape, mat, yPos, flipY) {
-      const m = new THREE.Mesh(new THREE.ShapeGeometry(shape), mat);
-      m.rotation.x = -Math.PI / 2;
-      if (flipY) m.rotation.z = Math.PI;
-      m.position.y = yPos;
-      group.add(m);
-    }
+    const camera = new THREE.PerspectiveCamera(35, W / H, 0.1, 100);
+    camera.position.set(0, 0, 10);
+    camera.lookAt(0, 0, 0);
 
-    /* Common gold base + edge + inner ring */
-    function goldBase(r, T) {
-      const g = new THREE.Group();
-      g.add(new THREE.Mesh(
-        new THREE.CylinderGeometry(r, r, T, 128),
-        new THREE.MeshStandardMaterial({ color: 0xD4900A, emissive: 0x5a2d00, metalness: 1.0, roughness: 0.05 })
-      ));
-      const edgeMat = new THREE.MeshStandardMaterial({ color: 0xFFD700, metalness: 1.0, roughness: 0.02 });
-      [-1, 1].forEach(s => {
-        const e = new THREE.Mesh(new THREE.TorusGeometry(r, r * 0.04, 8, 128), edgeMat);
-        e.rotation.x = Math.PI / 2; e.position.y = s * T / 2; g.add(e);
-      });
-      const innerMat = new THREE.MeshStandardMaterial({ color: 0xC8860A, metalness: 1.0, roughness: 0.08 });
-      [-1, 1].forEach(s => {
-        const e = new THREE.Mesh(new THREE.TorusGeometry(r * 0.8, r * 0.02, 8, 128), innerMat);
-        e.rotation.x = Math.PI / 2; e.position.y = s * (T / 2 + 0.001); g.add(e);
-      });
-      return g;
-    }
+    scene.add(new THREE.AmbientLight(0xfff0dd, 0.20));
+    const kL = new THREE.DirectionalLight(0xffffff, 3.5); kL.position.set( 5,  8,  5); scene.add(kL);
+    const fL = new THREE.PointLight     (0xfff0cc, 1.6); fL.position.set(-5,  3,  4); scene.add(fL);
+    const rL = new THREE.DirectionalLight(0xfff5dd, 2.2); rL.position.set( 0,  6, -5); scene.add(rL);
 
-    /* ---------- BTC ---------- */
-    function buildBTC(r) {
-      const T = r * 0.18;
-      const g = goldBase(r, T);
-      const rayMat = new THREE.MeshStandardMaterial({ color: 0xFFE066, metalness: 0.8, roughness: 0.1, transparent: true, opacity: 0.35 });
-      const faceY = T / 2 + 0.005;
-      for (let i = 0; i < 16; i++) {
-        const a1 = (i / 16) * Math.PI * 2, a2 = ((i + 0.4) / 16) * Math.PI * 2;
-        const ray = new THREE.Shape();
-        ray.moveTo(0, 0);
-        ray.lineTo(Math.cos(a1) * r * 0.78, Math.sin(a1) * r * 0.78);
-        ray.lineTo(Math.cos(a2) * r * 0.78, Math.sin(a2) * r * 0.78);
-        ray.closePath();
-        addFace(g, ray, rayMat,  faceY, false);
-        addFace(g, ray, rayMat, -faceY, true);
-      }
-      const logoMat = new THREE.MeshStandardMaterial({ color: 0xFFF5CC, metalness: 0.3, roughness: 0.1 });
-      [-1, 1].forEach(side => {
-        const yPos = side * (T / 2 + 0.008), flip = side === -1, s = r * 0.48, TILT = -12 * Math.PI / 180;
-        const addL = shape => {
-          const m = new THREE.Mesh(new THREE.ShapeGeometry(shape), logoMat);
-          m.rotation.x = -Math.PI / 2;
-          m.rotation.z = flip ? Math.PI + TILT : TILT;
-          m.position.y = yPos;
-          g.add(m);
-        };
-        const b1 = new THREE.Shape(); b1.moveTo(-s*0.3,-s*0.82); b1.lineTo(-s*0.16,-s*0.82); b1.lineTo(-s*0.16,s*0.82); b1.lineTo(-s*0.3,s*0.82); b1.closePath(); addL(b1);
-        const b2 = new THREE.Shape(); b2.moveTo(-s*0.03,-s*0.82); b2.lineTo(s*0.11,-s*0.82); b2.lineTo(s*0.11,s*0.82); b2.lineTo(-s*0.03,s*0.82); b2.closePath(); addL(b2);
-        const d1 = new THREE.Shape(); d1.moveTo(-s*0.16,s*0.18); d1.lineTo(-s*0.16,s*0.68); d1.lineTo(s*0.11,s*0.68); d1.quadraticCurveTo(s*0.58,s*0.68,s*0.58,s*0.43); d1.quadraticCurveTo(s*0.58,s*0.18,s*0.11,s*0.18); d1.closePath(); addL(d1);
-        const d2 = new THREE.Shape(); d2.moveTo(-s*0.16,-s*0.7); d2.lineTo(-s*0.16,s*0.15); d2.lineTo(s*0.11,s*0.15); d2.quadraticCurveTo(s*0.66,s*0.15,s*0.66,-s*0.27); d2.quadraticCurveTo(s*0.66,-s*0.7,s*0.11,-s*0.7); d2.closePath(); addL(d2);
-        [[-s*0.3,-s*0.14],[-s*0.03,s*0.11]].forEach(([x1,x2])=>{const sf=new THREE.Shape();sf.moveTo(x1,s*0.82);sf.lineTo(x2,s*0.82);sf.lineTo(x2,s*0.96);sf.lineTo(x1,s*0.96);sf.closePath();addL(sf);});
-        [[-s*0.3,-s*0.14],[-s*0.03,s*0.11]].forEach(([x1,x2])=>{const sf=new THREE.Shape();sf.moveTo(x1,-s*0.82);sf.lineTo(x2,-s*0.82);sf.lineTo(x2,-s*0.96);sf.lineTo(x1,-s*0.96);sf.closePath();addL(sf);});
-      });
-      return g;
-    }
-
-    /* ---------- ETH (gold base, embossed diamond) ---------- */
-    function buildETH(r) {
-      const T = r * 0.14;
-      const g = goldBase(r, T);
-      [-1, 1].forEach(side => {
-        const yPos = side * (T / 2 + 0.008), flip = side === -1, sc = r * 0.54;
-        const matRaised   = new THREE.MeshStandardMaterial({ color: 0xFFF5CC, metalness: 0.3, roughness: 0.10 });
-        const matMid      = new THREE.MeshStandardMaterial({ color: 0xC8860A, metalness: 0.7, roughness: 0.15 });
-        const matRecessed = new THREE.MeshStandardMaterial({ color: 0x8B6914, metalness: 0.6, roughness: 0.20 });
-        const add = (shape, mat) => {
-          const m = new THREE.Mesh(new THREE.ShapeGeometry(shape), mat);
-          m.rotation.x = -Math.PI / 2;
-          m.rotation.z = flip ? Math.PI : 0;
-          m.position.y = yPos;
-          g.add(m);
-        };
-        const top = new THREE.Shape(); top.moveTo(0, sc*0.82); top.lineTo(sc*0.46, sc*0.05); top.lineTo(0, sc*0.26); top.lineTo(-sc*0.46, sc*0.05); top.closePath(); add(top, matRaised);
-        const bot = new THREE.Shape(); bot.moveTo(0, -sc*0.82); bot.lineTo(sc*0.46, -sc*0.05); bot.lineTo(0, -sc*0.26); bot.lineTo(-sc*0.46, -sc*0.05); bot.closePath(); add(bot, matMid);
-        const mL  = new THREE.Shape(); mL.moveTo(-sc*0.46, sc*0.05); mL.lineTo(0, sc*0.05); mL.lineTo(0, -sc*0.05); mL.lineTo(-sc*0.46, -sc*0.05); mL.closePath(); add(mL, matRecessed);
-        const mR  = new THREE.Shape(); mR.moveTo(0, sc*0.05); mR.lineTo(sc*0.46, sc*0.05); mR.lineTo(sc*0.46, -sc*0.05); mR.lineTo(0, -sc*0.05); mR.closePath(); add(mR, matRecessed);
-      });
-      return g;
-    }
-
-    /* ---------- SOL (gold base, embossed three bars) ---------- */
-    function buildSOL(r) {
-      const T = r * 0.14;
-      const g = goldBase(r, T);
-      const barColors = [0xFFF5CC, 0xC8860A, 0x8B6914];
-      [-1, 1].forEach(side => {
-        const yPos = side * (T / 2 + 0.008), flip = side === -1, sc = r * 0.52;
-        barColors.forEach((col, bi) => {
-          const yOff = (1 - bi) * sc * 0.5, sk = bi === 2 ? -0.28 : 0.28;
-          const mat = new THREE.MeshStandardMaterial({ color: col, metalness: 0.5, roughness: 0.15 });
-          const sh = new THREE.Shape();
-          sh.moveTo(-sc*0.54 + sk*sc*0.5, yOff + sc*0.13);
-          sh.lineTo( sc*0.54 + sk*sc*0.5, yOff + sc*0.13);
-          sh.lineTo( sc*0.54 - sk*sc*0.5, yOff - sc*0.13);
-          sh.lineTo(-sc*0.54 - sk*sc*0.5, yOff - sc*0.13);
-          sh.closePath();
-          const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), mat);
-          m.rotation.x = -Math.PI / 2;
-          m.rotation.z = flip ? Math.PI : 0;
-          m.position.y = yPos;
-          g.add(m);
-        });
-      });
-      return g;
-    }
-
-    function buildCoin(type, radius = 1.0) {
-      const builders = { BTC: buildBTC, ETH: buildETH, SOL: buildSOL };
-      const g = builders[type](radius);
-      g.userData.coinType = type;
-      return g;
-    }
-
-    /* ---------- Orbit ring ---------- */
-    const ORBIT_R = 4.2;
-    const orbitSeq = ['BTC','ETH','SOL','BTC','ETH','SOL','BTC','ETH','SOL','BTC','ETH','SOL'];
-    const coins = [];
-    orbitSeq.forEach((type, i) => {
-      const angle = (i / orbitSeq.length) * Math.PI * 2;
-      const size  = 0.50 + Math.random() * 0.22;
-      const c = buildCoin(type, size);
-      c.position.set(Math.cos(angle) * ORBIT_R, (Math.random() - 0.5) * 1.4, Math.sin(angle) * ORBIT_R);
-      c.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-      c.userData = {
-        ...c.userData,
-        orbitAngle: angle,
-        rotX: (Math.random() - 0.5) * 0.01,
-        rotY: 0.012 + Math.random() * 0.012,
-        floatOffset: Math.random() * Math.PI * 2,
-        floatSpeed: 0.3 + Math.random() * 0.4,
-        initY: c.position.y
-      };
-      scene.add(c);
-      coins.push(c);
+    const goldMat = new THREE.MeshPhysicalMaterial({
+      color: 0xB87B0C,
+      metalness: 1.0,
+      roughness: 0.15,
+      clearcoat: 0.0,
+      envMapIntensity: 0.75,
     });
 
-    /* ---------- Gold dust particles ---------- */
-    const pGeo = new THREE.BufferGeometry();
-    const pPos = new Float32Array(300 * 3);
-    for (let i = 0; i < 300; i++) {
-      const rr = 2.5 + Math.random() * 7;
-      const th = Math.random() * Math.PI * 2;
-      const ph = Math.random() * Math.PI;
-      pPos[i*3]   = rr * Math.sin(ph) * Math.cos(th);
-      pPos[i*3+1] = rr * Math.sin(ph) * Math.sin(th);
-      pPos[i*3+2] = rr * Math.cos(ph);
-    }
-    pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-    scene.add(new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0xFFD97A, size: 0.025, transparent: true, opacity: 0.4 })));
+    const coinRoot = new THREE.Group();
+    coinRoot.rotation.x = -0.6;    // ring 살짝 일으킴 (약 34°)
+    scene.add(coinRoot);
 
-    /* ---------- Hero visibility tracking ---------- */
-    /* Pauses the render loop while the hero is offscreen so the WebGL
-       context stops fighting the rest of the page for GPU/vsync time. */
+    const coins = [];
+
+    const loader = new THREE.GLTFLoader();
+    loader.load('/assets/coin-scene.glb', function (gltf) {
+      const meshes = [];
+      gltf.scene.traverse(function (obj) {
+        if (obj.isMesh) meshes.push(obj);
+      });
+      console.log('[coin] extracted meshes:', meshes.length);
+
+      const NUM = 8;
+      // 모바일 portrait 의 좁은 frustum (aspect ≈ 0.46, half-width 3D ≈ 1.46)
+      // 안에 코인이 들어가야 하므로 R 을 1.25 로 축소 + coin scale 도 비례 축소.
+      // PC (≥768px) 는 종전 값 그대로.
+      const isMobile = W < 768;
+      const RING_R_BASE = isMobile ? 2.7 : 3.85;
+      const COIN_SCALE  = isMobile ? 0.012 : 0.014;
+      const ringMeshes = meshes.slice(0, NUM);
+
+      ringMeshes.forEach(function (mesh, i) {
+        mesh.material = goldMat;
+
+        const coinGroup = new THREE.Group();
+        mesh.position.set(0, 0, 0);
+        mesh.rotation.set(0, 0, 0);
+        mesh.scale.setScalar(COIN_SCALE);
+        mesh.matrixAutoUpdate = true;
+        mesh.matrix.identity();
+        coinGroup.add(mesh);
+
+        // 균등 45° 간격, 고정 위치
+        const angle = (i / NUM) * Math.PI * 2;
+        coinGroup.position.set(
+          RING_R_BASE * Math.cos(angle),
+          RING_R_BASE * Math.sin(angle),
+          0
+        );
+
+        // 초기 자세 — 모든 코인 동일한 Y tilt (oblique face). 균형 잡힌 통일감.
+        // Three.js Euler XYZ 에서 Y 가 X 안쪽에 적용되어 face 기준 평면 자체가 기울어짐.
+        // animate 는 rotation.x (와 Group0의 z) 만 set, y 는 손대지 않음 → tilt 유지.
+        coinGroup.rotation.set(0, Math.PI / 6, 0);
+
+        coinRoot.add(coinGroup);
+
+        // index=0 → 8s ping pong, 나머지 → 5s reset-loop
+        const period = (i === 0) ? 8 : 5;
+        coins.push({
+          group: coinGroup,
+          index: i,
+          angle: angle,                          // ring orbital angle (updated each frame)
+          ringR: RING_R_BASE,
+          period: period,
+          phaseOffset: (i / NUM) * period,       // 결정론적 — ring 위치 따라 wave 형성
+          floatSpeed: 0.3 + Math.random() * 0.4,
+          floatPhase: Math.random() * Math.PI * 2,
+        });
+      });
+
+      console.log('[coin] placed', coins.length, 'coins');
+    },
+    function (xhr) {
+      if (xhr.total) console.log('[coin] loading', (xhr.loaded / xhr.total * 100).toFixed(0) + '%');
+    },
+    function (err) {
+      console.error('[coin] FAILED:', err);
+    });
+
+    /* Hero visibility — pause render when offscreen */
     const heroEl = container.closest('header') || container.parentElement;
     let heroVisible = true;
     if ('IntersectionObserver' in window && heroEl) {
       new IntersectionObserver(
         function (entries) { heroVisible = entries[0].isIntersecting; },
-        { threshold: 0 }
+        { threshold: 0.05 }
       ).observe(heroEl);
     }
 
-    /* ---------- Animation ---------- */
-    let mouseX = 0, mouseY = 0, tX = 0, tY = 0;
-    /* Listen on the hero element only — no need for a global mousemove. */
-    (heroEl || document).addEventListener('mousemove', function (e) {
-      mouseX =  (e.clientX / window.innerWidth  - 0.5) * 2;
-      mouseY = -(e.clientY / window.innerHeight - 0.5) * 2;
-    }, { passive: true });
+    const reduced = window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
+    /* Ring 회전 — 정면 카메라에서 시계방향 (음수).
+       모바일은 R 작아서 같은 angular speed 면 picture-speed 가 느려 보임 →
+       R 비율(3.85/2.7≈1.43) 만큼 보정해서 PC 와 동일한 체감 속도 유지. */
+    let ORBIT_SPEED = (W < 768) ? -0.007 : -0.005;
     let t = 0;
+
     function animate() {
       requestAnimationFrame(animate);
-      if (!heroVisible) return;       /* skip render entirely when offscreen */
+      if (!heroVisible) return;
+
       if (!reduced) {
-        t += 0.008;
-        tX += (mouseX - tX) * 0.04;
-        tY += (mouseY - tY) * 0.04;
-        keyLight.position.x  = Math.sin(t * 0.5) * 7;
-        keyLight.position.z  = Math.cos(t * 0.5) * 7;
-        fillLight.position.x = Math.sin(t * 0.35 + Math.PI) * 6;
-        fillLight.position.z = Math.cos(t * 0.35 + Math.PI) * 6;
-        coins.forEach(c => {
-          const d = c.userData;
-          d.orbitAngle += 0.003;
-          c.position.x = Math.cos(d.orbitAngle) * ORBIT_R;
-          c.position.z = Math.sin(d.orbitAngle) * ORBIT_R;
-          c.position.y = d.initY + Math.sin(t * d.floatSpeed + d.floatOffset) * 0.25;
-          c.rotation.x += d.rotX;
-          c.rotation.y += d.rotY;
+        t += 0.016;
+
+        coins.forEach(function (c) {
+          // Ring 시계방향 회전 — angle 업데이트 후 위치 재계산
+          c.angle += ORBIT_SPEED;
+          const floatY = Math.sin(t * c.floatSpeed + c.floatPhase) * 0.15;
+          c.group.position.set(
+            c.ringR * Math.cos(c.angle),
+            c.ringR * Math.sin(c.angle) + floatY,
+            0
+          );
+
+          // 1:1 sync 자전 — ring 1바퀴 = 자전 1바퀴, 같은 cycle 동시 완주.
+          // 각 코인의 ring 위치(c.angle)가 자체 phase offset 역할 → 자연 wave 형성.
+          // π/2 offset 으로: 위/아래 face, 좌/우 edge 패턴.
+          const spinAng = c.angle + Math.PI / 2;
+          c.group.rotation.x = spinAng;
+          c.group.rotation.z = (c.index === 0) ? c.angle : 0;
+          // rotation.y 는 초기 const π/6 (oblique tilt) 유지 — 손대지 않음
         });
       }
+
       renderer.render(scene, camera);
     }
     animate();
+
+    let lastIsMobile = W < 768;
+    window.addEventListener('resize', function () {
+      W = container.clientWidth  || window.innerWidth;
+      H = container.clientHeight || window.innerHeight;
+      camera.aspect = W / H;
+      camera.updateProjectionMatrix();
+      renderer.setSize(W, H);
+
+      /* breakpoint 교차 시 — 폰 회전(portrait↔landscape) 대응.
+         ringR + mesh scale 라이브 갱신해서 frustum 밖으로 안 튀게. */
+      const nowMobile = W < 768;
+      if (nowMobile !== lastIsMobile && coins.length) {
+        lastIsMobile = nowMobile;
+        const newR = nowMobile ? 2.7 : 3.85;
+        const newScale = nowMobile ? 0.012 : 0.014;
+        ORBIT_SPEED = nowMobile ? -0.007 : -0.005;
+        coins.forEach(function (c) {
+          c.ringR = newR;
+          const mesh = c.group.children[0];
+          if (mesh) mesh.scale.setScalar(newScale);
+        });
+      }
+    });
   }
   init();
 })();
