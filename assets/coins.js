@@ -142,7 +142,7 @@
     /* Ring 회전 — 정면 카메라에서 시계방향 (음수).
        모바일은 R 작아서 같은 angular speed 면 picture-speed 가 느려 보임 →
        R 비율(3.85/2.7≈1.43) 만큼 보정해서 PC 와 동일한 체감 속도 유지. */
-    let ORBIT_SPEED = (W < 768) ? -0.009 : -0.005;
+    let ORBIT_SPEED = (W < 768) ? -0.007 : -0.005;
     let t = 0;
 
     function animate() {
@@ -191,7 +191,7 @@
         lastIsMobile = nowMobile;
         const newR = nowMobile ? 2.2 : 3.85;
         const newScale = nowMobile ? 0.008 : 0.014;
-        ORBIT_SPEED = nowMobile ? -0.009 : -0.005;
+        ORBIT_SPEED = nowMobile ? -0.007 : -0.005;
         coins.forEach(function (c) {
           c.ringR = newR;
           const mesh = c.group.children[0];
