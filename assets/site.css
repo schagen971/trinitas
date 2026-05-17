@@ -222,13 +222,16 @@ body {
 }
 
 @media (max-width: 480px) {
+  /* 워드마크가 edge-to-edge 안 닿도록 hero-content padding 확장 +
+     wordmark 폰트/letter-spacing 동시 축소. 양쪽 ~28px 여백 확보. */
+  .hero-content { padding: 0 1.75rem; }
   .hero-logo {
     width: clamp(70px, 22vw, 110px);
     margin-bottom: 1rem;
   }
   .hero-wordmark {
-    font-size: clamp(1.3rem, 7.2vw, 2.2rem);
-    letter-spacing: 0.12em;
+    font-size: clamp(1.1rem, 6vw, 1.9rem);
+    letter-spacing: 0.10em;
   }
   .hero-tagline {
     font-size: 0.62rem;
