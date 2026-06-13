@@ -19,3 +19,9 @@ Thumbs.db
 *.psd
 *.ai
 *.fig
+
+# === Client revision working files (not for deployment) ===
+*.pptx
+*.pdf
+ChatGPT Image*.png
+i_*-removebg-*.png

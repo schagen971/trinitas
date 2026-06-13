@@ -50,9 +50,9 @@ body {
 }
 
 /* ---- Scrollbar ---- */
-::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar { width: 14px; }
 ::-webkit-scrollbar-track { background: var(--brown-deep); }
-::-webkit-scrollbar-thumb { background: var(--gold-deep); border-radius: 5px; }
+::-webkit-scrollbar-thumb { background: var(--gold-deep); border-radius: 7px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--gold); }
 ::selection { background: var(--gold); color: var(--brown); }
 
@@ -172,7 +172,7 @@ body {
 .hero-motto {
   font-size: clamp(1.0rem, 1.55vw, 1.3rem);
   color: rgba(248, 242, 227, 0.9);
-  margin: 0;
+  margin: 1.5rem 0 0;
   letter-spacing: 0.04em;
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
 }
@@ -444,7 +444,7 @@ nav a:hover { color: var(--gold); }
   color: inherit;
   opacity: 0.55;
   letter-spacing: 0.2em;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   transition: all 0.3s;
 }
@@ -539,6 +539,50 @@ footer a.classic[href="#top"],
 
 .hero-motto {
   font-family: 'Playfair Display', 'Noto Serif KR', serif;
+}
+
+/* ---- Footer brand lockup (client rev) ----
+   Gold three-keys emblem (text-stripped PNG) stacked over a white-tone
+   wordmark + motto, rebuilt in HTML so the type reads on the brown footer
+   (the source logo's lettering is black). Left-aligned within the grid. */
+.footer-brand {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  text-decoration: none;
+  transition: opacity 0.3s ease;
+}
+.footer-brand:hover { opacity: 0.9; }
+.footer-emblem {
+  width: clamp(60px, 6vw, 80px);
+  height: auto;
+  margin-bottom: 0.9rem;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.footer-wordmark {
+  font-family: 'Cinzel', 'Noto Serif KR', serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  color: #F0E8D6;
+  line-height: 1.1;
+}
+.footer-motto {
+  font-family: 'Playfair Display', 'Noto Serif KR', serif;
+  font-style: italic;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: rgba(248, 242, 227, 0.8);
+  margin-top: 0.5rem;
+}
+
+/* Mobile — brand wordmark/motto run a touch big against the stacked
+   single-column footer; tighten size + tracking below md. */
+@media (max-width: 768px) {
+  .footer-wordmark { font-size: 0.68rem; letter-spacing: 0.12em; }
+  .footer-motto    { font-size: 0.64rem; }
 }
 
 /* Philosophy section heading — client PDF p.2 explicitly requested
@@ -646,7 +690,7 @@ footer a.classic[href="#top"],
 }
 
 .about-card p {
-  font-size: 0.95rem;
+  font-size: 1.125rem;
   color: var(--ink);
   opacity: 0.72;
   line-height: 1.7;
@@ -683,10 +727,11 @@ footer a.classic[href="#top"],
 .pillar-numeral {
   font-family: 'Pretendard Variable', Pretendard, sans-serif;
   font-weight: 300;
-  font-size: 0.72rem;
-  letter-spacing: 0.45em;
+  font-size: 2.5rem;
+  letter-spacing: 0.05em;
   color: var(--gold-deep);
-  margin: 0.25rem 0 0.65rem;
+  line-height: 1;
+  margin: 0 0 1rem;
 }
 
 .pillar-title {
@@ -699,7 +744,7 @@ footer a.classic[href="#top"],
 }
 
 .pillar-body {
-  font-size: 0.95rem;
+  font-size: 1.125rem;
   line-height: 1.75;
   color: var(--ink);
   opacity: 0.72;
@@ -721,7 +766,7 @@ footer a.classic[href="#top"],
 .business-body {
   font-family: 'Pretendard Variable', Pretendard, sans-serif;
   font-weight: 300;
-  font-size: clamp(0.95rem, 1.1vw, 1.05rem);
+  font-size: 1.125rem;
   line-height: 1.85;
   color: rgba(240, 232, 214, 0.74);
   max-width: 56ch;
@@ -761,40 +806,28 @@ footer a.classic[href="#top"],
   padding: 8rem 2.5rem 7rem;
 }
 
+/* Right-half image only — left half stays the section's beige (text side).
+   Section is split in two like the source comp. */
 .contact-image-bg {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 40%;
   z-index: 0;
-  background-image: url('/assets/contact-humanoid.webp');
+  background-image: url('/assets/contact-bg.webp');
   background-repeat: no-repeat;
-  background-position: right 36%;
+  background-position: center right;
   background-size: cover;
-  /* Anchor crop to right edge so humanoid figure always shows */
-  background-color: var(--beige);
 }
 
 @supports not (background-image: url('placeholder.webp')) {
   .contact-image-bg {
-    background-image: url('/assets/contact-humanoid.jpg');
+    background-image: url('/assets/contact-bg.jpg');
   }
 }
 
-/* Reinforcing beige sweep on top of image — guarantees text legibility
-   even on ultra-wide displays where the built-in fade falls right. */
-.contact-image-bg::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to right,
-    var(--beige) 0%,
-    var(--beige) 30%,
-    rgba(247, 244, 237, 0.88) 42%,
-    rgba(247, 244, 237, 0.40) 58%,
-    rgba(247, 244, 237, 0) 78%
-  );
-  pointer-events: none;
-}
+/* No gradient — clean left (beige) / right (photo) split. */
 
 .contact-inner {
   position: relative;
@@ -906,11 +939,17 @@ footer a.classic[href="#top"],
     padding: 5.5rem 1.5rem 5rem;
   }
   .contact-inner { padding-left: 0; }
+  /* Mobile: no split — full-bleed photo with a flat beige overlay so the
+     dark contact text stays legible across the whole width. */
   .contact-image-bg {
-    background-position: right -80px 36%;
-    background-size: 220% auto;
+    width: 100%;
+    left: 0;
+    right: 0;
   }
   .contact-image-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
     background: linear-gradient(
       to right,
       var(--beige) 0%,
@@ -918,6 +957,7 @@ footer a.classic[href="#top"],
       rgba(247, 244, 237, 0.75) 62%,
       rgba(247, 244, 237, 0.30) 100%
     );
+    pointer-events: none;
   }
   .contact-heading {
     font-size: clamp(1.75rem, 7vw, 2.4rem);
@@ -935,11 +975,6 @@ footer a.classic[href="#top"],
 @media (max-width: 480px) {
   .section-contact {
     padding: 4.5rem 1.25rem 4rem;
-  }
-  .contact-image-bg {
-    background-position: right -160px 15%;
-    background-size: 280% auto;
-    opacity: 0.45;
   }
   .contact-image-bg::after {
     background: linear-gradient(
