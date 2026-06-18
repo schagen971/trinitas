@@ -357,7 +357,7 @@ body {
 .business-numeral {
   font-family: 'Pretendard Variable', Pretendard, sans-serif;
   font-weight: 500;
-  font-size: 0.72rem;
+  font-size: 0.92rem;   /* unified with ABOUT (.about-card-index) — client 260618 */
   letter-spacing: 0.45em;
   color: var(--gold);
   margin: 0 0 0.9rem;
@@ -727,7 +727,7 @@ footer a.classic[href="#top"],
 .pillar-numeral {
   font-family: 'Pretendard Variable', Pretendard, sans-serif;
   font-weight: 300;
-  font-size: 2.5rem;
+  font-size: 0.92rem;   /* unified with ABOUT (.about-card-index) — client 260618 */
   letter-spacing: 0.05em;
   color: var(--gold-deep);
   line-height: 1;
@@ -737,7 +737,7 @@ footer a.classic[href="#top"],
 .pillar-title {
   font-family: 'Pretendard Variable', Pretendard, sans-serif;
   font-weight: 500;
-  font-size: 1.28rem;
+  font-size: 1.18rem;   /* unified with ABOUT (.about-card h3) — client 260618 */
   letter-spacing: 0.06em;
   color: var(--ink);
   margin: 0 0 0.9rem;
@@ -756,7 +756,7 @@ footer a.classic[href="#top"],
 .business-title {
   font-family: 'Pretendard Variable', Pretendard, sans-serif;
   font-weight: 500;
-  font-size: clamp(1.3rem, 1.85vw, 1.6rem);
+  font-size: 1.18rem;   /* unified with ABOUT (.about-card h3) — client 260618 */
   letter-spacing: 0.005em;
   color: #F0E8D6;
   line-height: 1.3;
@@ -790,13 +790,11 @@ footer a.classic[href="#top"],
 }
 
 /* ====================================================================
-   CONTACT — editorial composition (Phase 4 client revision).
-   Asymmetric 2-column at desktop: text anchored ~50% left, humanoid +
-   baroque-architecture image bleeds in from the right. The source image
-   carries its own beige fade on its left half; we layer a CSS gradient
-   on top for legibility insurance at any viewport width.
-   Distinctive accents: vertical rail eyebrow, coordinates locale,
-   lowercase Roman numerals, gold-deep period mark, hover underline draw.
+   CONTACT — editorial composition (client revision).
+   Single full-bleed baroque-architecture image; the source comp already
+   bakes a beige fade into its left (text) half, so it lays in as one piece
+   with the contact text overlaying the pre-faded left zone.
+   Distinctive accents: gold-deep period mark, gold rule, hover underline.
 ==================================================================== */
 
 .section-contact {
@@ -806,24 +804,22 @@ footer a.classic[href="#top"],
   padding: 8rem 2.5rem 7rem;
 }
 
-/* Right-half image only — left half stays the section's beige (text side).
-   Section is split in two like the source comp. */
+/* Full-bleed single image — the source comp already bakes its own beige
+   fade into the left (text) half, so we lay it across the whole section
+   as one piece. Text overlays the pre-faded left zone; castle sits right. */
 .contact-image-bg {
   position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 40%;
+  inset: 0;
   z-index: 0;
-  background-image: url('/assets/contact-bg.webp');
+  background-image: url('/assets/contact-bg-v2.webp');
   background-repeat: no-repeat;
-  background-position: center right;
+  background-position: center;
   background-size: cover;
 }
 
 @supports not (background-image: url('placeholder.webp')) {
   .contact-image-bg {
-    background-image: url('/assets/contact-bg.jpg');
+    background-image: url('/assets/contact-bg-v2.jpg');
   }
 }
 
@@ -939,26 +935,7 @@ footer a.classic[href="#top"],
     padding: 5.5rem 1.5rem 5rem;
   }
   .contact-inner { padding-left: 0; }
-  /* Mobile: no split — full-bleed photo with a flat beige overlay so the
-     dark contact text stays legible across the whole width. */
-  .contact-image-bg {
-    width: 100%;
-    left: 0;
-    right: 0;
-  }
-  .contact-image-bg::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      to right,
-      var(--beige) 0%,
-      var(--beige) 40%,
-      rgba(247, 244, 237, 0.75) 62%,
-      rgba(247, 244, 237, 0.30) 100%
-    );
-    pointer-events: none;
-  }
+  /* Mobile uses the same single full-bleed original image — no overlay. */
   .contact-heading {
     font-size: clamp(1.75rem, 7vw, 2.4rem);
   }
@@ -975,14 +952,6 @@ footer a.classic[href="#top"],
 @media (max-width: 480px) {
   .section-contact {
     padding: 4.5rem 1.25rem 4rem;
-  }
-  .contact-image-bg::after {
-    background: linear-gradient(
-      to right,
-      var(--beige) 0%,
-      rgba(247, 244, 237, 0.85) 50%,
-      rgba(247, 244, 237, 0.55) 100%
-    );
   }
   .contact-heading { font-size: clamp(1.6rem, 8vw, 2rem); }
   .contact-item {
