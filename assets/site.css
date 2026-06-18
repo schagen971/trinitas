@@ -937,7 +937,7 @@ footer a.classic[href="#top"],
   .contact-inner { padding-left: 0; }
   /* Mobile uses the same single full-bleed original image — no overlay. */
   .contact-heading {
-    font-size: clamp(1.6rem, 6.2vw, 2.1rem);
+    font-size: clamp(1.4rem, 5.4vw, 1.9rem);
   }
   .contact-lead { font-size: 0.95rem; margin-bottom: 2.2rem; }
   .contact-rule { margin-bottom: 2rem; }
@@ -953,7 +953,7 @@ footer a.classic[href="#top"],
   .section-contact {
     padding: 4.5rem 1.25rem 4rem;
   }
-  .contact-heading { font-size: clamp(1.45rem, 7vw, 1.78rem); }
+  .contact-heading { font-size: clamp(1.15rem, 5.5vw, 1.45rem); }
   .contact-item {
     grid-template-columns: 1fr;
     gap: 0.3rem;
